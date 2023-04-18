@@ -1,0 +1,63 @@
+import cv2
+import numpy as np
+from keras_vggface.vggface import VGGFace
+from keras_vggface.utils import preprocess_input
+from mtcnn import MTCNN
+from facenet_pytorch import MTCNN as FaceNetMTCNN
+from facenet_pytorch import InceptionResnetV1
+import torch
+from PIL import ImageDraw, Image
+
+def detect_objects(image_path, box_color=(0, 255, 0)):
+    # Load all the face detection models
+    mtcnn = MTCNN()
+    facenet_mtcnn = FaceNetMTCNN(keep_all=True)
+    vggface_model = VGGFace(model='resnet50', include_top=False, input_shape=(224, 224, 3), pooling='avg')
+    openface_model = InceptionResnetV1(pretrained='vggface2').eval()
+
+    # Load input image
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Detect faces using MTCNN
+    mtcnn_boxes = mtcnn.detect_faces(image)
+    mtcnn_boxes = [box['box'] for box in mtcnn_boxes]
+
+    # Detect faces using FaceNet's MTCNN
+    facenet_boxes, _ = facenet_mtcnn.detect(Image.fromarray(image))
+    facenet_boxes = facenet_boxes.tolist()
+
+    # Detect faces using VGGFace
+    vggface_image = cv2.resize(image, (224, 224))
+    vggface_image = np.expand_dims(vggface_image, axis=0)
+    vggface_image = preprocess_input(vggface_image)
+    vggface_embeddings = vggface_model.predict(vggface_image)
+    vggface_boxes = []
+    for embedding in vggface_embeddings:
+        x = int(embedding[0] * image.shape[1])
+        y = int(embedding[1] * image.shape[0])
+        w = int(embedding[2] * image.shape[1])
+        h = int(embedding[3] * image.shape[0])
+        vggface_boxes.append([x, y, w-x, h-y])
+
+    # Detect faces using OpenFace
+    openface_image = Image.fromarray(image)
+    openface_boxes = []
+    with torch.no_grad():
+        openface_boxes_tensor = openface_model.detect(openface_image)
+        for box in openface_boxes_tensor:
+            x, y, w, h = box.tolist()
+            openface_boxes.append([x, y, w-x, h-y])
+
+    # Combine all the detected face bounding boxes
+    all_boxes = mtcnn_boxes + facenet_boxes + vggface_boxes + openface_boxes
+
+    # Draw bounding boxes around the detected faces
+    annotated_image = Image.fromarray(image)
+    draw = ImageDraw.Draw(annotated_image)
+    for box in all_boxes:
+        x, y, w, h = box
+        draw.rectangle([(x, y), (x+w, y+h)], outline=box_color, width=3)
+
+    return np.array(annotated_image)
+
