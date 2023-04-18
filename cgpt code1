@@ -1,3 +1,13 @@
+Here are the commands to install the necessary dependencies:
+
+OpenCV: pip install opencv-python
+NumPy: pip install numpy
+Keras-vggface: pip install keras-vggface
+MTCNN: pip install mtcnn
+FaceNet-pytorch: pip install facenet-pytorch
+PyTorch: Please follow the instructions on the official PyTorch website to install PyTorch based on your platform and environment.
+
+
 import cv2
 import numpy as np
 from keras_vggface.vggface import VGGFace
