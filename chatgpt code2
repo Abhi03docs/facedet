@@ -1,0 +1,57 @@
+dependencies-->
+pip install opencv-python
+pip install numpy
+pip install tensorflow
+
+import cv2
+import numpy as np
+from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
+from tensorflow.keras.applications.resnet50 import ResNet50
+
+def detect_faces(frame, box_color=(0, 255, 0)):
+    # Load models
+    vgg16_model = VGG16(weights='imagenet')
+    mobilenet_v2_model = MobileNetV2(weights='imagenet')
+    resnet50_model = ResNet50(weights='imagenet')
+    
+    # Resize image
+    frame = cv2.resize(frame, (224, 224))
+    
+    # Preprocess image
+    img = preprocess_input(frame)
+    
+    # Predictions using all three models
+    vgg16_preds = vgg16_model.predict(np.array([img]))
+    mobilenet_v2_preds = mobilenet_v2_model.predict(np.array([img]))
+    resnet50_preds = resnet50_model.predict(np.array([img]))
+    
+    # Get bounding boxes from predictions
+    vgg16_boxes = decode_predictions(vgg16_preds, top=3)[0]
+    mobilenet_v2_boxes = decode_predictions(mobilenet_v2_preds, top=3)[0]
+    resnet50_boxes = decode_predictions(resnet50_preds, top=3)[0]
+    
+    # Draw bounding boxes on image
+    for box in vgg16_boxes:
+        x, y, w, h = box[2][0], box[2][1], box[2][2], box[2][3]
+        cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
+    for box in mobilenet_v2_boxes:
+        x, y, w, h = box[2][0], box[2][1], box[2][2], box[2][3]
+        cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
+    for box in resnet50_boxes:
+        x, y, w, h = box[2][0], box[2][1], box[2][2], box[2][3]
+        cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
+    
+    # Return annotated image
+    return frame
+
+
+You can use this function by passing in an image frame and an optional box color, like this:
+
+frame = cv2.imread('image.jpg')
+annotated_frame = detect_faces(frame, box_color=(0, 255, 0))
+cv2.imshow('Annotated Frame', annotated_frame)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+This will display the original image with bounding boxes drawn around any detected faces.
